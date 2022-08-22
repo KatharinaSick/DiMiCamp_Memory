@@ -1,4 +1,4 @@
-# DiMi Workshop: Memory
+# DiMiCamp Workshop: Memory
 
 ## Intro
 
@@ -57,3 +57,49 @@ public class StatusController {
 }
 ```
 * Status bar should be green now
+
+## Game Options
+
+* Now the game is asking for some game options
+* Create a DTO that will be sent to the user. Currently, it only contains one option but it can/will be extended during the workshop
+```java
+// OptionsResponse.java
+package net.coderdojo.linz.memory.game.dto;
+
+public record OptionsResponse(
+    int maxNumberOfPlayers
+) {
+    public OptionsResponse() {
+        this(1);
+    }
+}
+
+```
+* Create a new controller `GameController` with a GET endpoint that simply returns the game options
+```java
+// GameController.java
+package net.coderdojo.linz.memory.game;
+
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import net.coderdojo.linz.memory.game.dto.OptionsResponse;
+
+@RestController
+public class GameController {
+
+    @GetMapping("/options")
+    public OptionsResponse getOptions() {
+        return new OptionsResponse(1);
+    }
+
+}
+```
+* Restart the server & reload the frontend
+* Now it is possible to enter a player name, but the endpoint for starting the game is still missing
+
+## Bonus
+
+The below things can be implemented if there is still time left
+
+* Define the game options in a properties file
