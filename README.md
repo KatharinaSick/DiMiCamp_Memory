@@ -33,7 +33,7 @@ public WebMvcConfigurer corsConfigurer() {
     return new WebMvcConfigurer() {
         @Override
         public void addCorsMappings(CorsRegistry registry) {
-            registry.addMapping("/**").allowedOrigins("*");
+            registry.addMapping("/**").allowedMethods("*").allowedOrigins("*");
         }
     };
 }
@@ -90,7 +90,7 @@ public class GameController {
 
     @GetMapping("/options")
     public OptionsResponse getOptions() {
-        return new OptionsResponse(1);
+        return new OptionsResponse();
     }
 
 }
@@ -160,6 +160,7 @@ public GameResponse startGame(@RequestBody GameRequest gameRequest) {
 // GameService.java
 package net.coderdojo.linz.memory.game;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -172,11 +173,11 @@ import net.coderdojo.linz.memory.game.dto.PlayerResponse;
 public class GameService {
     
     public List<String> generateCards() {
-        return Arrays.asList("😅", "😀", "😆", "😁", "😆", "😁", "😅", "😀");
+        return new ArrayList<>(Arrays.asList("😅", "😀", "😆", "😁", "😆", "😁", "😅", "😀"));
     }
 
     public List<PlayerResponse> initPlayers(List<String> playerNames) {
-        return playerNames.stream().map(player -> new PlayerResponse(player, true, Collections.emptyList())).toList();
+        return playerNames.stream().map(player -> new Player(player, new ArrayList<>())).toList();
     }
 }
 ```
@@ -220,9 +221,124 @@ public class GameController {
 ```
 * Now it should be possible to start the game.
 
+## Making a move
+
+* For being able to make a move, we need to store the currently running games somewhere. We'll simply keep them in memory for now, but this is of course not ideal.
+* Create a new pojo that contains the data of the current game. I changed it a bit when comparing it to the DTO, to show why we are using a DTO
+```java
+// Game.java
+package net.coderdojo.linz.memory.game;
+
+import java.util.List;
+
+public record Game(
+        String id,
+        List<String> cards,
+        List<Player> players,
+        String currentPlayerName
+        ) {
+
+    public static record Player(
+            String name,
+            List<String> foundCards) {
+    }
+}
+```
+* Move the start game logic to the service instead of the controller and make `generateCards` & `initPlayers` private and create the corresponding constructors in the DTOs.
+```java
+// GameService.java
+public Game startGame(GameRequest request) {
+    var players = initPlayers(request.players());
+    var game = new Game(
+            UUID.randomUUID().toString(),
+            generateCards(),
+            players,
+            players.get(0).name());
+    return game;
+}
+```
+```java
+// GameController.java
+...
+@PostMapping("/game")
+public GameResponse startGame(@RequestBody GameRequest gameRequest) {
+    var response = new GameResponse(gameService.startGame(gameRequest));
+    return response;
+}
+...
+```
+* Add a list to the service that keeps a reference to all games
+```java
+// GameService.java
+@Service
+public class GameService {
+
+    private final List<Game> games = new ArrayList<>();
+
+    public Game startGame(GameRequest request) {
+        var game = ...;
+        games.add(game);
+        return game;
+    }
+
+    ...
+}
+```
+* Now we are ready to make a move. Add a new DTO
+```java
+// MoveRequest.java
+package net.coderdojo.linz.memory.game.dto;
+
+public record MoveRequest(
+        String player,
+        String card1,
+        String card2) {
+
+}
+```
+* Add a new endpoint to the `GameController`
+```java
+// GameController.java
+@PutMapping("/game/{id}")
+public GameResponse makeMove(@PathVariable String id, @RequestBody MoveRequest moveRequest) {
+    return new GameResponse(gameService.makeMove(id, moveRequest));
+}
+```
+* Implement the `makeMove` method in the service
+```java
+//GameService.java
+public Game makeMove(String gameId, MoveRequest request) {
+    final Game game = games.stream()
+            .filter(g -> g.id().equals(gameId))
+            .findFirst()
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "Game with id %s not found".formatted(gameId)));
+
+    if (!game.currentPlayerName().equals(request.player())) {
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "This is not the turn of player %s".formatted(request.player()));
+    }
+
+    if (request.card1().equals(request.card2())) {
+        Collections.replaceAll(game.cards(), request.card1(), "");
+        var currentPlayer = game.players().stream()
+                .filter(p -> p.name().equals(game.currentPlayerName()))
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                        "Current player not found"));
+
+        currentPlayer.foundCards().add(request.card1());
+    }
+
+    return game;
+}
+```
+
+
 ## Bonus
 
 The below things can be implemented if there is still time left
 
 * Define the game options in a properties file
 * Validate the request body of the POST /game endpoint with Springs `@Valid`
+* Use a database to store games
