@@ -23,7 +23,7 @@
 
 ## Server Status
 
-* Open frontend: https://react-ts-nhw22s.stackblitz.io/ - tiny url: https://tiny.one/dimi-memory
+* Open frontend: https://dimicamp-memory.stackblitz.io/ - tiny url: https://tiny.one/dimicamp-memory
 * Check Server status on the top - it should still state "Kein Server gefunden" (unfortunately I couldn't differentiate server not running from CORS)
 * Quickly explain CORS and why the server is not reachable because of it
 * Allow all CORS origins in the `MemoryApplication.java`
@@ -506,7 +506,6 @@ public Game makeMove(String gameId, MoveRequest request) {
 
 * Don't always return the same cards - have a big list and return some random cards
 * Extend game options with difficulty: easy, medium & hard
-* Load cards via an HTTP request instead of copying them
 
 ## Thoughts
 
@@ -520,4 +519,4 @@ The below things can be implemented if there is still time left
 * Define the game options in a properties file
 * Validate the request body of the POST /game endpoint with Springs `@Valid`
 * Use a database to store games
-* Fix determining the winner if 
+* Load cards via an HTTP request instead of copying them
