@@ -335,14 +335,15 @@ public Game makeMove(String gameId, MoveRequest request) {
                 "This is not the turn of player %s".formatted(request.player()));
     }
 
+    var currentPlayer = game.getPlayers().stream()
+            .filter(p -> p.getName().equals(game.getCurrentPlayerName()))
+            .findFirst()
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Current player not found"));
+
+
     if (request.card1().equals(request.card2())) {
         Collections.replaceAll(game.getCards(), request.card1(), "");
-        var currentPlayer = game.getPlayers().stream()
-                .filter(p -> p.getName().equals(game.getCurrentPlayerName()))
-                .findFirst()
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
-                        "Current player not found"));
-
         currentPlayer.getFoundCards().add(request.card1());
     }
 
@@ -454,6 +455,58 @@ public record GameResponse(
     }
 }
 ```
+
+## Mutliplayer Support
+
+* Adjust the game options to allow 2 players
+* Notice, that the game doesn't work properly because player one is always the selected one
+* Set the next player in the `makeMove` method
+```java
+// GameService.java
+public Game makeMove(String gameId, MoveRequest request) {
+    final Game game = ...
+
+    // validations..
+
+    if (request.card1().equals(request.card2())) {
+        Collections.replaceAll(game.getCards(), request.card1(), "");
+        currentPlayer.getFoundCards().add(request.card1());
+    }
+
+    var nextPlayerIndex = (game.getPlayers().indexOf(currentPlayer) + 1) % game.getPlayers().size();
+    game.setCurrentPlayerName(game.getPlayers().get(nextPlayerIndex).getName());
+    game.setWinners(determineWinners(game));
+
+    return game;
+}
+```
+* Add logic that the player doesn't change if a card was found
+```java
+// GameService.java
+public Game makeMove(String gameId, MoveRequest request) {
+    final Game game = ...
+
+    // validations..
+
+    if (request.card1().equals(request.card2())) {
+        Collections.replaceAll(game.getCards(), request.card1(), "");
+        currentPlayer.getFoundCards().add(request.card1());
+    } else {
+        var nextPlayerIndex = (game.getPlayers().indexOf(currentPlayer) + 1) % game.getPlayers().size();
+        game.setCurrentPlayerName(game.getPlayers().get(nextPlayerIndex).getName());
+    }
+
+    game.setWinners(determineWinners(game));
+
+    return game;
+}
+```
+
+## Next
+
+* Don't always return the same cards - have a big list and return some random cards
+* Extend game options with difficulty: easy, medium & hard
+* Load cards via an HTTP request instead of copying them
 
 ## Thoughts
 

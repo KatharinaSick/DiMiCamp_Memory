@@ -43,15 +43,18 @@ public class GameService {
                     "This is not the turn of player %s".formatted(request.player()));
         }
 
+        var currentPlayer = game.getPlayers().stream()
+        .filter(p -> p.getName().equals(game.getCurrentPlayerName()))
+        .findFirst()
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                "Current player not found"));
+
         if (request.card1().equals(request.card2())) {
             Collections.replaceAll(game.getCards(), request.card1(), "");
-            var currentPlayer = game.getPlayers().stream()
-                    .filter(p -> p.getName().equals(game.getCurrentPlayerName()))
-                    .findFirst()
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
-                            "Current player not found"));
-
             currentPlayer.getFoundCards().add(request.card1());
+        } else {
+            var nextPlayerIndex = (game.getPlayers().indexOf(currentPlayer) + 1) % game.getPlayers().size();
+            game.setCurrentPlayerName(game.getPlayers().get(nextPlayerIndex).getName());
         }
 
         game.setWinners(determineWinners(game));

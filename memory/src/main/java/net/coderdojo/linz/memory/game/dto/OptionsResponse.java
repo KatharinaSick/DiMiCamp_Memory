@@ -4,6 +4,6 @@ public record OptionsResponse(
     int maxNumberOfPlayers
 ) {
     public OptionsResponse() {
-        this(1);
+        this(2);
     }
 }
