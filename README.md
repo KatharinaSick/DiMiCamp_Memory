@@ -23,7 +23,7 @@
 
 ## Server Status
 
-* Open frontend: https://dimicamp-memory.stackblitz.io/ - tiny url: https://tiny.one/dimicamp-memory
+* Open frontend: https://6nygpe.csb.app/
 * Check Server status on the top - it should still state "Kein Server gefunden" (unfortunately I couldn't differentiate server not running from CORS)
 * Quickly explain CORS and why the server is not reachable because of it
 * Allow all CORS origins in the `MemoryApplication.java`
@@ -505,7 +505,6 @@ public Game makeMove(String gameId, MoveRequest request) {
 ## Next
 
 * Don't always return the same cards - have a big list and return some random cards
-* Extend game options with difficulty: easy, medium & hard
 
 ## Thoughts
 
