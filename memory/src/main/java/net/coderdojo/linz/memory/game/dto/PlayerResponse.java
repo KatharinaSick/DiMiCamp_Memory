@@ -10,7 +10,6 @@ public record PlayerResponse(
         List<String> foundCards) {
 
     public PlayerResponse(Player player, boolean currentPlayer) {
-        this(player.name(), currentPlayer, player.foundCards());
+        this(player.getName(), currentPlayer, player.getFoundCards());
     }
-
 }

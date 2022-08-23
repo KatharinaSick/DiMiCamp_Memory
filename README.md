@@ -231,17 +231,33 @@ package net.coderdojo.linz.memory.game;
 
 import java.util.List;
 
-public record Game(
-        String id,
-        List<String> cards,
-        List<Player> players,
-        String currentPlayerName
-        ) {
+public class Game {
 
-    public static record Player(
-            String name,
-            List<String> foundCards) {
-    }
+        private String id;
+        private List<String> cards;
+        private List<Player> players;
+        private String currentPlayerName;
+
+        public Game(String id, List<String> cards, List<Player> players, String currentPlayerName) {
+                this.id = id;
+                this.cards = cards;
+                this.players = players;
+                this.currentPlayerName = currentPlayerName;
+        }
+
+        // getters & setters
+
+        public static class Player {
+                private String name;
+                private List<String> foundCards;
+
+                public Player(String name, List<String> foundCards) {
+                        this.name = name;
+                        this.foundCards = foundCards;
+                }
+
+                // getters & setters
+        }
 }
 ```
 * Move the start game logic to the service instead of the controller and make `generateCards` & `initPlayers` private and create the corresponding constructors in the DTOs.
@@ -253,7 +269,7 @@ public Game startGame(GameRequest request) {
             UUID.randomUUID().toString(),
             generateCards(),
             players,
-            players.get(0).name());
+            players.get(0).getName());
     return game;
 }
 ```
@@ -309,31 +325,140 @@ public GameResponse makeMove(@PathVariable String id, @RequestBody MoveRequest m
 //GameService.java
 public Game makeMove(String gameId, MoveRequest request) {
     final Game game = games.stream()
-            .filter(g -> g.id().equals(gameId))
+            .filter(g -> g.getId().equals(gameId))
             .findFirst()
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                     "Game with id %s not found".formatted(gameId)));
 
-    if (!game.currentPlayerName().equals(request.player())) {
+    if (!game.getCurrentPlayerName().equals(request.player())) {
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                 "This is not the turn of player %s".formatted(request.player()));
     }
 
     if (request.card1().equals(request.card2())) {
-        Collections.replaceAll(game.cards(), request.card1(), "");
-        var currentPlayer = game.players().stream()
-                .filter(p -> p.name().equals(game.currentPlayerName()))
+        Collections.replaceAll(game.getCards(), request.card1(), "");
+        var currentPlayer = game.getPlayers().stream()
+                .filter(p -> p.getName().equals(game.getCurrentPlayerName()))
                 .findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
                         "Current player not found"));
 
-        currentPlayer.foundCards().add(request.card1());
+        currentPlayer.getFoundCards().add(request.card1());
     }
 
     return game;
 }
 ```
 
+## End of Game & Winner
+
+* Now we need to inform the client if the game is over and thus, somebody has won
+* Add a field `winner` to the `Game` which will be null if the game is still going on
+```java
+// Game.java
+package net.coderdojo.linz.memory.game;
+
+import java.util.List;
+
+public class Game {
+
+        private String id;
+        private List<String> cards;
+        private List<Player> players;
+        private String currentPlayerName;
+        private Player winner;
+
+        public Game(String id, List<String> cards, List<Player> players, String currentPlayerName) {
+                this.id = id;
+                this.cards = cards;
+                this.players = players;
+                this.currentPlayerName = currentPlayerName;
+                this.winner = null;
+        }
+
+        // getters & setters
+
+        // Player..
+}
+```
+* Next, we need to determine the winner in the `GameService`. Add a new method `determineWinner` to the `GameService`
+```java
+// GameService.java
+private Player determineWinner(Game game) {
+    if (game.getCards().stream().anyMatch(card -> StringUtils.hasText(card))) {
+        // The game is still going on
+        return new ArrayList<>();
+    }
+
+    // Could also be solved with a stream but it would be quite hard to understand
+    // when never having heard of streams
+    Player playerWithMostCards = null;
+    for (int i = 0; i < game.getPlayers().size(); i++) {
+        var player = game.getPlayers().get(i);
+        if (playerWithMostCards == null || playerWithMostCards.getFoundCards().size() < player.getFoundCards().size()) {
+            playerWithMostCards = player;
+        }
+    }
+
+    return playerWithMostCards;
+}
+```
+* Let kids find out which problem we have with this method (it does not recognize if two persons have won) and fix it. We should then store a list of winners in the `Game` pojo.
+```java
+// GameService.java
+private List<Player> determineWinners(Game game) {
+    if (game.getCards().stream().anyMatch(card -> StringUtils.hasText(card))) {
+        // The game is still going on
+        return new ArrayList<>();
+    }
+
+    // Could also be solved with a stream but it would be quite hard to understand
+    // when never having heard of streams
+    List<Player> playersWithMostCards = new ArrayList<>();
+    int mostCards = 0;
+    for (int i = 0; i < game.getPlayers().size(); i++) {
+        var player = game.getPlayers().get(i);
+        if (playersWithMostCards.isEmpty() || mostCards < player.getFoundCards().size()) {
+            mostCards = player.getFoundCards().size();
+            playersWithMostCards.clear();
+            playersWithMostCards.add(player);
+        } else if (mostCards == player.getFoundCards().size()) {
+            playersWithMostCards.add(player);
+        }
+    }
+
+    return playersWithMostCards;
+}
+```
+* Adjust the `GameResponse` to also return the winners
+```java
+// GameResponse.java
+package net.coderdojo.linz.memory.game.dto;
+
+import java.util.List;
+
+import net.coderdojo.linz.memory.game.Game;
+
+public record GameResponse(
+        String id,
+        List<String> cards,
+        List<PlayerResponse> players,
+        List<PlayerResponse> winners) {
+
+    public GameResponse(Game game) {
+        this(
+                game.getId(),
+                game.getCards(),
+                game.getPlayers().stream().map(p -> new PlayerResponse(p, p.getName().equals(game.getCurrentPlayerName()))).toList(),
+                game.getWinners().stream().map(p -> new PlayerResponse(p, p.getName().equals(game.getCurrentPlayerName()))).toList());
+    }
+}
+```
+
+## Thoughts
+
+* The code is by far not ideal - I was kinda tired and not feeling too well when writing it. I hope it is still ok for you.
+* I am using streams quite a few times. Maybe it would be easier for the kids if we replace them with for loops on the go
 
 ## Bonus
 
@@ -342,3 +467,4 @@ The below things can be implemented if there is still time left
 * Define the game options in a properties file
 * Validate the request body of the POST /game endpoint with Springs `@Valid`
 * Use a database to store games
+* Fix determining the winner if 

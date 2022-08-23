@@ -7,9 +7,14 @@ import net.coderdojo.linz.memory.game.Game;
 public record GameResponse(
         String id,
         List<String> cards,
-        List<PlayerResponse> players) {
+        List<PlayerResponse> players,
+        List<PlayerResponse> winners) {
 
     public GameResponse(Game game) {
-        this(game.id(), game.cards(), game.players().stream().map(p -> new PlayerResponse(p, p.name().equals(game.currentPlayerName()))).toList());
+        this(
+                game.getId(),
+                game.getCards(),
+                game.getPlayers().stream().map(p -> new PlayerResponse(p, p.getName().equals(game.getCurrentPlayerName()))).toList(),
+                game.getWinners().stream().map(p -> new PlayerResponse(p, p.getName().equals(game.getCurrentPlayerName()))).toList());
     }
 }
